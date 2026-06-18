@@ -1,0 +1,11 @@
+torch>=2.0
+torchvision
+timm
+webdataset
+albumentations
+opencv-python
+pandas
+numpy
+wandb
+scikit-learn
+tqdm
