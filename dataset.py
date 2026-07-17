@@ -36,6 +36,10 @@ def decode_sample(sample):
     jpg_bytes = sample["jpg"]
     img_array = np.frombuffer(jpg_bytes, dtype=np.uint8)
     img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+
+    if img is None:
+        return None
+
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
     label_bytes = sample["labels.npy"]
@@ -47,6 +51,8 @@ def decode_sample(sample):
 
 
 def apply_augmentation(sample, mode="train"):
+    if sample is None:
+        return None
     img, labels = sample
     transform = get_augmentation(mode)
     augmented = transform(image=img)
@@ -56,3 +62,22 @@ def apply_augmentation(sample, mode="train"):
 
 def get_dataloader(shard_pattern, mode="train"):
     shards = sorted(glob.glob(shard_pattern))
+    print(f"Found {len(shards)} shards")
+
+    dataset = (
+        wds.WebDataset(shards, shardshuffle=100 if mode == "train" else 0)
+        .shuffle(1000 if mode == "train" else 0)
+        .map(decode_sample)
+        .select(lambda x: x is not None)
+        .map(lambda x: apply_augmentation(x, mode))
+        .batched(config.BATCH_SIZE)
+    )
+
+    loader = DataLoader(
+        dataset,
+        batch_size=None,
+        num_workers=config.NUM_WORKERS,
+        pin_memory=True
+    )
+
+    return loader
