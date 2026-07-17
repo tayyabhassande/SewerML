@@ -5,6 +5,7 @@ import numpy as np
 import torch
 import io
 import cv2
+import glob
 from torch.utils.data import DataLoader
 from config import config
 
@@ -32,13 +33,11 @@ def get_augmentation(mode="train"):
 
 
 def decode_sample(sample):
-    # Decode image
     jpg_bytes = sample["jpg"]
     img_array = np.frombuffer(jpg_bytes, dtype=np.uint8)
     img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-    # Decode labels
     label_bytes = sample["labels.npy"]
     buf = io.BytesIO(label_bytes)
     labels = np.load(buf)
@@ -56,19 +55,4 @@ def apply_augmentation(sample, mode="train"):
 
 
 def get_dataloader(shard_pattern, mode="train"):
-    dataset = (
-        wds.WebDataset(shard_pattern, shardshuffle=mode == "train")
-        .shuffle(1000 if mode == "train" else 0)
-        .map(decode_sample)
-        .map(lambda x: apply_augmentation(x, mode))
-        .batched(config.BATCH_SIZE)
-    )
-
-    loader = DataLoader(
-        dataset,
-        batch_size=None,
-        num_workers=config.NUM_WORKERS,
-        pin_memory=True
-    )
-
-    return loader
+    shards = sorted(glob.glob(shard_pattern))
